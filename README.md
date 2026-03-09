@@ -4,8 +4,6 @@
 All the shitty pixel art was done by me lol, just a base concept of the character.
 This is all done in p5js, later on we'll be using more languages (HTML, CSS).
 
-The "Inventory" will be finished <30 days from now.
-
 ### What we have now:
 - "Dynamic" Character
 - basic enemies (no png's for them yet)
@@ -14,4 +12,11 @@ The "Inventory" will be finished <30 days from now.
 - Our first spell, Frighten, freezes the enemies attacks and movement + a cool effect
 - Double jumps, basic but cool
 ---
+## Controls:
+W/SPACE = Jump, Hold either or = High jumnp
+1 = Frighten
+A/D move right or left
+SHIFT = dash
+
 Go [here](https://william-cmdd.github.io/shadow-game-thingy/) to see a "Preview" of the game.
+
