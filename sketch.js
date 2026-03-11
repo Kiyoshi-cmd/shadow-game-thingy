@@ -1,4 +1,6 @@
-// Global Configuration & Constants
+//===========
+//Glabal Vars
+//===========
 const FRIGHTEN_TOTAL_DUR = 180;
 const FRIGHTEN_FLASH_DUR = 300;
 const FRIGHTEN_COOLDOWN_MAX = 1800;
@@ -10,22 +12,34 @@ const playerW = 50, playerH = 80;
 const speed = 4, BASE_JUMP = -11, MAX_JUMP = -21, gravity = 0.4, groundY = 350;
 const wallJumpVelX = 20, wallJumpVelY = -9;
 const GRACE_FRAMES = 35, CHARGE_FRAMES = 90;
+const FAST_FALL_ACCEL = 1.2; // Extra gravity when S is held airborne
 
-// Menu slide animation
-const MENU_SLIDE_SPEED = 0.1;
-let menuX = -800;
-let menuTarget = -800;
 
+//==========
+// Menu drop
+//==========
+const MENU_HEIGHT = 300;
+
+let menuY = -MENU_HEIGHT;
+let menuTarget = -MENU_HEIGHT;
+
+
+//================
 // State Variables
+//================
 let x = 200, y = 200, velX = 0, velY = 0;
 let camX = 0, camY = 0;
 let facing = -1, onGround = false, touchingWall = 0;
 let jumpsLeft = 1, jumpCooldown = 0, coyoteTimer = 0;
 let playerHealth = 3, invulnTimer = 0;
 let showInventory = false;
-let gamePaused = false; 
+let gamePaused = false;
+let gameState = "mainMenu"; // "mainMenu" | "playing"
 
+
+//=========================
 // Death / Respawn sequence
+//=========================
 let deathState = "alive";
 let deathTimer = 0;
 const DEATH_SCREEN_DUR = 60;  
@@ -33,21 +47,30 @@ const FADE_OUT_DUR     = 40;
 const FADE_IN_DUR      = 40;  
 let fadeAlpha = 0;            
 
+
+//=====================
 // Spell/Ability States
+//=====================
 let dashing = false, dashTimer = 0, dashCooldown = 0, dashDirX = 1, dashDirY = 0;
 let frightenTimer = 0, frightenVisualTimer = 0, frightenCooldown = 0, glowTimer = 0;
 let spaceHeld = false, spaceHoldTimer = 0, isCharging = false, chargeUsed = false;
 
+
+//=================
 // Assets & Visuals
+//=================
 let TRANSITION_FRAMES = 8;
 let playerImg, playerIdleImg, playerTransitionImg, jumpFrame1Img, jumpFrame3Img;
 let heartImg, invImg, deathImg;
 let dustParticles = [];
 let shakeTimer = 0, shakeAmt = 0;
 let prevVelY = 0, moveTransitionTimer = 0, wasMoving = false;
-
 let spellIconConfig;
 
+
+//===========
+// Map layout
+//===========
 let rects = [
   { x: 300, y: 220, w: 400, h: 30 },
   { x: 800, y: 150, w: 500, h: 30 },
@@ -59,8 +82,12 @@ let rects = [
   { x: 750, y: 100, w: 40, h: 250 },
   { x: 1350, y: -200, w: 40, h: 550 },
 ];
-let enemies = [];
 
+
+//===========
+//Enemy logic
+//===========
+let enemies = [];
 class Enemy {
   constructor(plat) {
     this.plat = plat;
@@ -112,35 +139,65 @@ class Enemy {
   draw(cx, cy, intensity) {
     push();
     rectMode(CENTER);
-    if (intensity > 0.1) fill(lerpColor(color(180, 0, 0), color(255), intensity));
-    else if (this.state === "CHASE") fill(255, 0, 0);
-    else if (this.state === "NOTICE") fill(255, 255, 0);
-    else fill(180, 0, 0);
 
+    // Fill based on state
+    if (frightenTimer > 0) {
+      // Frightened: flash blue/white
+      let flash = sin(frameCount * 0.3) * 0.5 + 0.5;
+      fill(lerpColor(color(20, 20, 180), color(200, 200, 255), flash));
+      stroke(100, 100, 255);
+    } else if (intensity > 0.1) {
+      fill(lerpColor(color(180, 0, 0), color(255), intensity));
+      stroke(255, 180, 180);
+    } else if (this.state === "CHASE") {
+      fill(255, 0, 0);
+      stroke(200, 0, 0);
+    } else if (this.state === "NOTICE") {
+      fill(255, 255, 0);
+      stroke(200, 180, 0);
+    } else {
+      fill(180, 0, 0);
+      stroke(120, 0, 0);
+    }
+
+    strokeWeight(2);
     rect(this.x - cx, this.y - cy, this.w, this.h);
-    fill(255);
-    rect(this.x - cx + (this.dir * 10), this.y - cy - 10, 8, 8);
+
+    // Eye white
+    fill(222);
+    noStroke();
+    rect(this.x - cx + (this.dir * 10), this.y - cy - 10, 8, 8)
     pop();
     rectMode(CORNER);
   }
 }
 
+//=================
+// All base 64 imgs
+//=================
  function preload() {
-  // Loading all Base64 assets
-  playerImg = loadImage("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABYklEQVR4AeyWQVLCMBSGU2HsCCvQlStP4H08gSsP4MpDuOIEXssF40q7K04dGMxXiIRMB957dWCTzvxN+tK+/8trGrhwZz4yQK5ArkCuQK6AugIP4/E6VZ/dXAWA8f1k4mLdlKUjboUQA2CCWWp0Oxo54ow7wyEGIPesqtzzfP6nj8WCsOsDIQZ4q+vip7XbnV490IsHCiC7EXlPDLBNWdCu3zlvBNSsqtoqbCK6sxagzV7ctc3eqVmt9q6lFyaAruRfTdMVPhpTAbDSn6ZTdxmlpf/oY58egHUSDYm6KgAMMMIQEESfGGMix+QmFQDPYoQhfT4/dLJ9ANNY1oUX51BXgHXAjJk5icIeQIwxYhqpAUh+7fd/2nIwoOklE0AwTl+BpQomAKaMufXb5/kgE8B/mQNhAjg0c+1rMAFAfkhXw6H4T4oaIN6IuiDq7Y+SFEINgGmAYEdM9b1cuiDuPaZfAAAA//9YGm7GAAAABklEQVQDAFNelY2Wx0laAAAAAElFTkSuQmCC");
-  playerIdleImg = loadImage("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABX0lEQVR4AeyUP07DMBTGHSoRqZUqtTAxsbFxH07AxAGYOARTT8C1GComyNZKQaqKfy5Oo7RN/b0MXRzp2c9/v5+fnXflLvxlgByBHIEcgRwBOQJPk8m2a0OyuQSA8ONs5tp2W5aOfitEMgAiiHWF7sZjRz/jzvAlA7D3oqrc63LZ2Nd6TbcbApEM8LFaFb9Bbl+8e6A3DxRB9iPpXjLA/5YF9faTcmdALapq1zCUKkCQKO5D1RRANA3RMQGIGr3TJQBe+st87q5bW+LT913XjnfSGkpyJQAEEHr2EIhi+PQxlqTYmSQBsBYhBPH5/bCH6dScjGQAhKPVm01wf3z4g2MoZADeAZmPk6M3JAewXgZg0Y3P/9TlaEQVDCjgQkMoTABROF6BoHcw1QTALogPuXv2wEwAfeLqNZgATp2cd8CpFDMB9AkAoURBBmgnoj6Q1DEZgI0jBBnxmDEn2rn6DwAA//+7eBh6AAAABklEQVQDANEoh7HWcC9cAAAAAElFTkSuQmCC");
-  playerTransitionImg = loadImage("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABWklEQVR4AeyVMW7CMBSGnSI1EkzQTp16gt6nJ+jUA3TqIZg4AddiQEyQLaAgEPgLGIwVhN8LgsWRftt5Tt7/+eGYF/PkKwGkCqQKpAqkCogr8N3r7UK1Oc1FABh/9fvG13ueG+JaiGgATDALjT66XUOceaO4ogHIPSoK8zednjRbLgmbNhDRAOOyzNa13bkZWqB/C+RAzjPxo2iAY8qMfjehPQioUVHUVThEZK0UoM6efdbdRVNttxf3sTcqgKbki6pqCt+MiQDY6b+DgXn10jL+sbG5BWCfeFNRQxEABhhhCAhiTIy5KMfgIREA72KEIWM+P/SwcwBTX9qN5+cQV4B9wIpZOYncGUCMOWISiQFI/mbPf/q806FrJRWAMw5/Ak0VVAAsGXPtt8/7TiqAe5kDoQK4x8oxRyoAXrwm6T4QA/gHURNEKfxTEgNg6iA4EUOtNhseOenWYA8AAP//vMifygAAAAZJREFUAwDqGoyxNUG4yQAAAABJRU5ErkJggg==");
-  jumpFrame1Img = loadImage("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABcElEQVR4AeyUMU7DMBSGHSoRqZUqtWJiYmPjPpyAiQMwcQimnoD7cAKGignSqZWCVJV8Lk6frIj6dwYWR/pt5zl5/+cXxxfun68CUCpQKlAqUCogV+B+NjvEGnOaSwAY3y0Wzuqqrh3xXIhkAEwwi42up1NHnHmXcSUDkHvVNO5pve71sdsRdmMgkgFet9vq29udmpcO6LkDCiCnmfRRMsBvyor+8E57FFCrpvFVOEa0VgXw2asb3/UNEG+bTX+vDLIAhgzYiEPxczEJgJ3+uFy6S5OVMbHPtnXsEzOVNJQAMMDooYPAFDEmxlySY/SQBMC7GGHImN8PUX6qQ0yVDGAN2v2+v82FyAZg5biPOQN4Xwag1LfzOe+6ejLx/ZhGBsAsGNtPQDxHEoBdPeZf3a9nTXP2gQSAGasfMmcOqRAyAJsuXjnGuZIAwhnAORBkjUOM52z8r7EEQCKSWwVT+hDnuVTJAHHiYEofz3F/Tj8AAAD//5CojqgAAAAGSURBVAMAvN+mQZ6VgigAAAAASUVORK5CYII=");
-  jumpFrame3Img = jumpFrame1Img; // Placeholder
-  heartImg = loadImage("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAcAAAAGCAYAAAAPDoR2AAAAdklEQVR4ARyNMQqAMAxFf+PipB7AURGv5uhBnMSLObk6OunUUmhrfgIhL/wXItDaq6ocIkURnJvuZCHMbYup6yzolYemMZa62AGyqqMKOhBjRHAOsuTsrvcFy6vI4A4Ba0rOflI4vw8MHu8toGwhgSYvKHJn/wAAAP//2/jwwwAAAAZJREFUAwAVSTigb6dlnwAAAABJRU5ErkJggg==");
-  invImg = loadImage("data:image/png;base64,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");
+   
+playerImg = loadImage("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABYklEQVR4AeyWQVLCMBSGU2HsCCvQlStP4H08gSsP4MpDuOIEXssF40q7K04dGMxXiIRMB957dWCTzvxN+tK+/8trGrhwZz4yQK5ArkCuQK6AugIP4/E6VZ/dXAWA8f1k4mLdlKUjboUQA2CCWWp0Oxo54ow7wyEGIPesqtzzfP6nj8WCsOsDIQZ4q+vip7XbnV490IsHCiC7EXlPDLBNWdCu3zlvBNSsqtoqbCK6sxagzV7ctc3eqVmt9q6lFyaAruRfTdMVPhpTAbDSn6ZTdxmlpf/oY58egHUSDYm6KgAMMMIQEESfGGMix+QmFQDPYoQhfT4/dLJ9ANNY1oUX51BXgHXAjJk5icIeQIwxYhqpAUh+7fd/2nIwoOklE0AwTl+BpQomAKaMufXb5/kgE8B/mQNhAjg0c+1rMAFAfkhXw6H4T4oaIN6IuiDq7Y+SFEINgGmAYEdM9b1cuiDuPaZfAAAA//9YGm7GAAAABklEQVQDAFNelY2Wx0laAAAAAElFTkSuQmCC");
+
+playerIdleImg = loadImage("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABX0lEQVR4AeyUP07DMBTGHSoRqZUqtTAxsbFxH07AxAGYOARTT8C1GComyNZKQaqKfy5Oo7RN/b0MXRzp2c9/v5+fnXflLvxlgByBHIEcgRwBOQJPk8m2a0OyuQSA8ONs5tp2W5aOfitEMgAiiHWF7sZjRz/jzvAlA7D3oqrc63LZ2Nd6TbcbApEM8LFaFb9Bbl+8e6A3DxRB9iPpXjLA/5YF9faTcmdALapq1zCUKkCQKO5D1RRANA3RMQGIGr3TJQBe+st87q5bW+LT913XjnfSGkpyJQAEEHr2EIhi+PQxlqTYmSQBsBYhBPH5/bCH6dScjGQAhKPVm01wf3z4g2MoZADeAZmPk6M3JAewXgZg0Y3P/9TlaEQVDCjgQkMoTABROF6BoHcw1QTALogPuXv2wEwAfeLqNZgATp2cd8CpFDMB9AkAoURBBmgnoj6Q1DEZgI0jBBnxmDEn2rn6DwAA//+7eBh6AAAABklEQVQDANEoh7HWcC9cAAAAAElFTkSuQmCC");
+
+playerTransitionImg = loadImage("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABWklEQVR4AeyVMW7CMBSGnSI1EkzQTp16gt6nJ+jUA3TqIZg4AddiQEyQLaAgEPgLGIwVhN8LgsWRftt5Tt7/+eGYF/PkKwGkCqQKpAqkCogr8N3r7UK1Oc1FABh/9fvG13ueG+JaiGgATDALjT66XUOceaO4ogHIPSoK8zednjRbLgmbNhDRAOOyzNa13bkZWqB/C+RAzjPxo2iAY8qMfjehPQioUVHUVThEZK0UoM6efdbdRVNttxf3sTcqgKbki6pqCt+MiQDY6b+DgXn10jL+sbG5BWCfeFNRQxEABhhhCAhiTIy5KMfgIREA72KEIWM+P/SwcwBTX9qN5+cQV4B9wIpZOYncGUCMOWISiQFI/mbPf/q806FrJRWAMw5/Ak0VVAAsGXPtt8/7TiqAe5kDoQK4x8oxRyoAXrwm6T4QA/gHURNEKfxTEgNg6iA4EUOtNhseOenWYA8AAP//vMifygAAAAZJREFUAwDqGoyxNUG4yQAAAABJRU5ErkJggg==");
+
+jumpFrame1Img = loadImage("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABcElEQVR4AeyUMU7DMBSGHSoRqZUqtWJiYmPjPpyAiQMwcQimnoD7cAKGignSqZWCVJV8Lk6frIj6dwYWR/pt5zl5/+cXxxfun68CUCpQKlAqUCogV+B+NjvEGnOaSwAY3y0Wzuqqrh3xXIhkAEwwi42up1NHnHmXcSUDkHvVNO5pve71sdsRdmMgkgFet9vq29udmpcO6LkDCiCnmfRRMsBvyor+8E57FFCrpvFVOEa0VgXw2asb3/UNEG+bTX+vDLIAhgzYiEPxczEJgJ3+uFy6S5OVMbHPtnXsEzOVNJQAMMDooYPAFDEmxlySY/SQBMC7GGHImN8PUX6qQ0yVDGAN2v2+v82FyAZg5biPOQN4Xwag1LfzOe+6ejLx/ZhGBsAsGNtPQDxHEoBdPeZf3a9nTXP2gQSAGasfMmcOqRAyAJsuXjnGuZIAwhnAORBkjUOM52z8r7EEQCKSWwVT+hDnuVTJAHHiYEofz3F/Tj8AAAD//5CojqgAAAAGSURBVAMAvN+mQZ6VgigAAAAASUVORK5CYII=");
   
+jumpFrame3Img = jumpFrame1Img; // Placeholder
+
+heartImg = loadImage("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAcAAAAGCAYAAAAPDoR2AAAAdklEQVR4ARyNMQqAMAxFf+PipB7AURGv5uhBnMSLObk6OunUUmhrfgIhL/wXItDaq6ocIkURnJvuZCHMbYup6yzolYemMZa62AGyqqMKOhBjRHAOsuTsrvcFy6vI4A4Ba0rOflI4vw8MHu8toGwhgSYvKHJn/wAAAP//2/jwwwAAAAZJREFUAwAVSTigb6dlnwAAAABJRU5ErkJggg==");
+
 deathImg =
-loadImage("data:image/png;base64,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")
+loadImage("data:image/png;base64,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")
   
 }
 
 
+//=====
+//Setup
+//=====
 function setup() {
   createCanvas(800, 400);
   imageMode(CENTER);
@@ -150,9 +207,19 @@ function setup() {
   enemies.push(new Enemy(rects[1]));
 }
 
+
+//==========
+// main draw
+//==========
 function draw() {
-  menuX = lerp(menuX, menuTarget, MENU_SLIDE_SPEED);
-  if (abs(menuX - menuTarget) < 1) menuX = menuTarget;
+  // Show main menu if not playing
+  if (gameState === "mainMenu") {
+    drawMainMenu();
+    return;
+  }
+
+  // Menu snaps instantly (no animation)
+  menuY = menuTarget;
 
   if (!gamePaused && deathState === "alive") {
     updateTimers();
@@ -166,9 +233,8 @@ function draw() {
     prevVelY = velY;
     handleMovement();
     
-    // RESOLUTION ORDER:
-    resolveCollisions();      // 1. Solid Walls/Floors first
-    checkEnemyCollisions();   // 2. Then check for damage triggers
+    resolveCollisions();
+    checkEnemyCollisions();
 
     camX = x - width / 2;
     camY = y - height / 2;
@@ -189,7 +255,64 @@ function draw() {
   handleDeathSequence();
 }
 
-// --- NEW: Dedicated Enemy Collision Logic ---
+// --- Main Menu ---
+function drawMainMenu() {
+  background(20);
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(42);
+  text("shadow game thingy", width / 2, height / 2 - 60);
+  textSize(16);
+  fill(180);
+  text("Q to go in inventory, 1 to cast frighten, SHIFT to dash, WAD to move, S to fall faster", width / 2, height / 2 - 10);
+
+  // Play button
+  let btnX = width / 2 - 80, btnY = height / 2 + 40, btnW = 160, btnH = 50;
+  let hovered = mouseX > btnX && mouseX < btnX + btnW && mouseY > btnY && mouseY < btnY + btnH;
+  fill(hovered ? color(100, 100, 100) : color(60, 60, 60));
+  noStroke();
+  rect(btnX, btnY, btnW, btnH, 8);
+  fill(255);
+  textSize(20);
+  text("Continue", width / 2, btnY + btnH / 2);
+  textAlign(LEFT, BASELINE);
+}
+
+function mousePressed() {
+  if (gameState === "mainMenu") {
+    let btnX = width / 2 - 80, btnY = height / 2 + 40, btnW = 160, btnH = 50;
+    if (mouseX > btnX && mouseX < btnX + btnW && mouseY > btnY && mouseY < btnY + btnH) {
+      gameState = "playing";
+    }
+    return;
+  }
+
+  // Inventory "Return to Menu" button click
+  if (showInventory) {
+    let panelX = 250, panelY = menuY - 200, panelW = 300, panelH = 300;
+    let btnX = panelX + 50, btnY = panelY + panelH - 70, btnW = 200, btnH = 40;
+    if (mouseX > btnX && mouseX < btnX + btnW && mouseY > btnY && mouseY < btnY + btnH) {
+      returnToMainMenu();
+    }
+  }
+}
+
+function returnToMainMenu() {
+  // Reset all game state
+  playerHealth = 3;
+  x = 200; y = 200; velX = 0; velY = 0;
+  dashing = false; frightenTimer = 0; invulnTimer = 0;
+  dustParticles = [];
+  deathState = "alive"; fadeAlpha = 0;
+  showInventory = false;
+  gamePaused = false;
+  menuTarget = -MENU_HEIGHT;
+  menuY = -MENU_HEIGHT;
+  for (let en of enemies) { en.state = "PATROL"; en.vx = 1.2; }
+  gameState = "mainMenu";
+}
+
+// --- Enemy Collision Logic ---
 function checkEnemyCollisions() {
   if (invulnTimer > 0 || playerHealth <= 0) return;
 
@@ -198,13 +321,10 @@ function checkEnemyCollisions() {
     let overlapY = (playerH / 2.15 + en.h / 2) - abs(y - en.y);
 
     if (overlapX > 0 && overlapY > 0) {
-      // Hit detected! 
       playerHealth--;
       invulnTimer = 60;
       shakeTimer = 15; 
       shakeAmt = 10;
-      
-      // Knockback logic (doesn't use resolution, just sets velocity)
       velX = (x < en.x) ? -12 : 12;
       velY = -6;
       onGround = false;
@@ -268,6 +388,11 @@ function handleMovement() {
 
     velX = constrain(velX, -speed, speed);
     velY += gravity;
+
+    // Fast fall: S key while airborne
+    if (!onGround && (keyIsDown(83) || keyIsDown(DOWN_ARROW))) {
+      velY += FAST_FALL_ACCEL;
+    }
   }
   x += velX;
   y += velY;
@@ -276,10 +401,13 @@ function handleMovement() {
 }
 
 function keyPressed() {
+  if (gameState === "mainMenu") return;
+
   if (key === "q" || key === "Q") {
     showInventory = !showInventory;
     gamePaused = showInventory;
-    menuTarget = showInventory ? 0 : -800;
+    menuTarget = showInventory ? height / 2 : -MENU_HEIGHT;
+    menuY = menuTarget; // Snap instantly
   }
   if (gamePaused) return;
 
@@ -323,9 +451,23 @@ function keyReleased() {
 
 function renderWorld(fIntensity) {
   let worldCol = lerpColor(color(80, 120, 200), color(255), fIntensity);
-  fill(lerpColor(color(20), color(255), fIntensity));
+  let groundCol = lerpColor(color(20), color(255), fIntensity);
+  let strokeCol = lerpColor(color(60), color(200), fIntensity);
+
+  // Ground
+  fill(groundCol);
+  stroke(strokeCol);
+  strokeWeight(2);
   rect(-1000 - camX, groundY - camY, 3000, 500);
-  for (let r of rects) { fill(worldCol); rect(r.x - camX, r.y - camY, r.w, r.h); }
+
+  // Platforms
+  fill(worldCol);
+  stroke(lerpColor(color(120, 160, 255), color(255), fIntensity));
+  strokeWeight(2);
+  for (let r of rects) {
+    rect(r.x - camX, r.y - camY, r.w, r.h);
+  }
+  noStroke();
 }
 
 function drawPlayer() {
@@ -347,48 +489,129 @@ function drawPlayer() {
     arc(x - camX, y - camY, 120, 120, -HALF_PI, -HALF_PI + prog * TWO_PI);
   }
 
+  // Soft shadow below player
+  noStroke();
+  fill(0, 0, 0, 50);
+  ellipse(x - camX, groundY - camY, constrain(playerW * 1.2 - abs(y - groundY) * 0.06, 6, playerW * 1.2), 8);
+
   push();
   translate(x - camX, y - camY); scale(facing, 1.0);
   if (imgToDraw && invulnTimer % 4 < 2) image(imgToDraw, 0, -25, playerW + 80, playerH + 50);
   pop();
 }
 
+
+//======
+//drawUI
+//======
 function drawUI() {
-  if (invImg && menuX > -800) {
-    push(); imageMode(CORNER); image(invImg, menuX, 0, 800, 400); pop();
+  // Always draw health and spell icon during gameplay
+  if (gameState === "playing") {
+    drawHealthBar();
+    drawSpellIcon();
   }
-  drawHealthBar();
-  drawSpellIcon();
+
+  if (showInventory) {
+    let panelX = 250, panelY = menuY - 200, panelW = 300, panelH = 300;
+
+    // Panel background
+    fill(60, 60, 60);
+    noStroke();
+    rect(panelX + 25, panelY + 10, panelW - 50, panelH, 2);
+
+    // Return to Menu button
+    let btnX = panelX + 50, btnY = panelY + panelH - 70, btnW = 200, btnH = 40;
+    
+    fill(50);
+    rect(btnX, btnY - 5, 200, 50);
+    
+    noStroke();
+    fill(255);
+    textAlign(CENTER, CENTER);
+    textSize(22);
+    textStyle(BOLD);
+    text("Return to Menu", btnX + btnW / 2, btnY + btnH / 2);
+    textAlign(LEFT, BASELINE);
+    textStyle(NORMAL);
+  }
 }
 
+//==========
+//drawHealth
+//==========
 function drawHealthBar() {
-  const HEART_MARGIN = 20, HEART_Y = 20, HEART_SPACING = 36, HEART_SCALE = 2.5;
-  const HEART_W = 12 * HEART_SCALE, HEART_H = 10 * HEART_SCALE;
-  let heartsOriginX = max(HEART_MARGIN, menuX + 800 / 3 + HEART_MARGIN);
+  const HEART_MARGIN = 20;
+  const HEART_Y = 20;
+  const HEART_SPACING = 36;
+  const HEART_SCALE = 2.5;
+
+  const HEART_W = 12 * HEART_SCALE;
+  const HEART_H = 10 * HEART_SCALE;
+
+  let heartsOriginX = HEART_MARGIN;
+
   for (let i = 0; i < 3; i++) {
     push();
+
     if (heartImg) {
       if (i >= playerHealth) tint(0, 150);
-      image(heartImg, heartsOriginX + (i * HEART_SPACING), HEART_Y, HEART_W, HEART_H);
-    } else {
+
+      image(
+        heartImg,
+        heartsOriginX + (i * HEART_SPACING),
+        HEART_Y,
+        HEART_W,
+        HEART_H
+      );
+    } 
+    else {
       fill(i < playerHealth ? color(220, 50, 50) : color(60, 20, 20));
-      ellipse(heartsOriginX + (i * HEART_SPACING), HEART_Y, HEART_W * 0.85, HEART_H);
+      ellipse(
+        heartsOriginX + (i * HEART_SPACING),
+        HEART_Y,
+        HEART_W * 0.85,
+        HEART_H
+      );
     }
+
     pop();
   }
 }
 
 function drawSpellIcon() {
   let cx = spellIconConfig.x, cy = spellIconConfig.y, sz = spellIconConfig.size;
-  if (frightenCooldown <= 0 && glowTimer <= 0) return;
+
   push();
-  noStroke(); fill(20, 180); ellipse(cx, cy, sz);
+  noStroke();
+
   if (frightenCooldown > 0) {
+    // On cooldown: darkened + arc showing progress
+    fill(20, 180);
+    ellipse(cx, cy, sz);
     fill(250, 250, 250, 180);
     arc(cx, cy, sz, sz, -HALF_PI, -HALF_PI + (TWO_PI * (1 - frightenCooldown / FRIGHTEN_COOLDOWN_MAX)));
+    noFill();
+    stroke(120, 120, 120);
+    strokeWeight(2);
+    ellipse(cx, cy, sz);
+  } else {
+    // Ready
+    fill(20, 180);
+    ellipse(cx, cy, sz);
+    noFill();
+    stroke(glowTimer > 0 ? color(255, 220, 80) : color(255));
+    strokeWeight(glowTimer > 0 ? map(glowTimer, 0, 60, 2, 10) : 2);
+    ellipse(cx, cy, sz);
+
+    // Keybind label
+    noStroke();
+    fill(255, glowTimer > 0 ? 255 : 200);
+    textAlign(CENTER, CENTER);
+    textSize(14);
+    text("1", cx, cy);
+    textAlign(LEFT, BASELINE);
   }
-  noFill(); stroke(255, glowTimer > 0 ? map(glowTimer, 0, 60, 0, 255) : 255);
-  strokeWeight(glowTimer > 0 ? map(glowTimer, 0, 60, 2, 10) : 2); ellipse(cx, cy, sz);
+
   pop();
 }
 
@@ -487,6 +710,3 @@ function tryDash() {
   let len = sqrt(ix * ix + iy * iy) || 1;
   dashDirX = ix / len; dashDirY = iy / len;
 }
-
-
-
